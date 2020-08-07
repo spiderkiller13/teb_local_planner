@@ -443,6 +443,9 @@ private:
   // flags
   bool initialized_; //!< Keeps track about the correct initialization of this class
 
+  // spiderkiller added
+  bool is_forward_;
+  int num_majority_;
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };

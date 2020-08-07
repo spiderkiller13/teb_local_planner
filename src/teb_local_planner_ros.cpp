@@ -57,7 +57,11 @@
 #include "g2o/solvers/csparse/linear_solver_csparse.h"
 #include "g2o/solvers/cholmod/linear_solver_cholmod.h"
 
-
+#include <iostream>
+#include <typeinfo>
+#include <cmath>
+#include <string>
+#define _USE_MATH_DEFINES // for C++
 // register this planner both as a BaseLocalPlanner and as a MBF's CostmapController plugin
 PLUGINLIB_EXPORT_CLASS(teb_local_planner::TebLocalPlannerROS, nav_core::BaseLocalPlanner)
 PLUGINLIB_EXPORT_CLASS(teb_local_planner::TebLocalPlannerROS, mbf_costmap_core::CostmapController)
@@ -259,6 +263,63 @@ uint32_t TebLocalPlannerROS::computeVelocityCommands(const geometry_msgs::PoseSt
   
   // prune global plan to cut off parts of the past (spatially before the robot)
   pruneGlobalPlan(*tf_, robot_pose, global_plan_, cfg_.trajectory.global_plan_prune_distance);
+  
+  //spiderkiller added  
+  std::vector<bool> voting_box_is_forward;
+  for (int i = 0; i < 10; i++)
+  {
+    double p_dif_x = global_plan_[i].pose.position.x - robot_pose_.x();
+    double p_dif_y = global_plan_[i].pose.position.y - robot_pose_.y();
+    double t = robot_pose_.theta();
+    double x_out =  cos(t)*p_dif_x + sin(t)*p_dif_y;
+    double y_out = -sin(t)*p_dif_x + cos(t)*p_dif_y;
+    std::cout << x_out;
+    std::cout << " , ";
+    std::cout << y_out << std::endl;
+    double heading_diff = atan2(y_out, x_out);
+    
+    if (heading_diff > M_PI/2.0 || heading_diff < -M_PI/2.0)
+      {voting_box_is_forward.push_back(false);}
+    else
+      {voting_box_is_forward.push_back(true);}
+  }
+  
+  // Count Final voting
+  int back_vote = 0;
+  int front_vote = 0;
+  std::vector<bool>::iterator begin = voting_box_is_forward.begin();
+  std::vector<bool>::iterator end   = voting_box_is_forward.end();
+
+  std::vector<bool>::iterator it;
+  for(it=begin ; it!=end ; it++)
+  {
+    if (*it) // Forward
+      {front_vote++;}
+    else // Backward
+      {back_vote++;}
+  }
+
+  //
+  if (back_vote > front_vote)
+  {
+    is_forward_ = false;
+    num_majority_ = back_vote;
+  }
+  else if (back_vote < front_vote)
+  {
+    is_forward_ = true;
+    num_majority_ = front_vote;
+  }
+  else
+  {
+    is_forward_ = true;
+    num_majority_ = front_vote;
+  }
+  if (is_forward_)
+    {std::cout << "[TEB_heading_monitor] Forward("+ std::to_string(num_majority_) + "/10)" << std::endl;}
+  else
+    {std::cout << "[TEB_heading_monitor] Backward("+ std::to_string(num_majority_) + "/10)" << std::endl;}
+
 
   // Transform global plan to the frame of interest (w.r.t. the local costmap)
   std::vector<geometry_msgs::PoseStamped> transformed_plan;
