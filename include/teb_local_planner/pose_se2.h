@@ -46,6 +46,9 @@
 #include <geometry_msgs/Pose.h>
 #include <tf/transform_datatypes.h>
 
+#include <cmath>
+#define _USE_MATH_DEFINES // for C++
+
 namespace teb_local_planner
 {
 
@@ -188,8 +191,22 @@ public:
   const double& theta() const {return _theta;}
   
   /**
-    * @brief Set pose to [0,0,0]
-    */ 
+    * @brief Set _theta = _theta + PI
+    */
+  // spiderkiller added
+  void reverse_theta()
+  {
+    _theta += M_PI;
+    // Normalize angle : [pi, -pi]
+    while(_theta > M_PI or _theta < -M_PI)
+    {
+      if (_theta > M_PI)
+        _theta -= M_PI*2;
+      else if (_theta < -M_PI)
+        _theta += M_PI*2;
+    }
+  }
+
   void setZero()
   {
     _position.setZero();

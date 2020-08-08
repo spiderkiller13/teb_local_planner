@@ -300,6 +300,14 @@ protected:
                        std::vector<geometry_msgs::PoseStamped>& global_plan, double dist_behind_robot=1);
   
   /**
+   * @brief spiderkiller added 
+   * This function prune all global path that already passed by base_link,
+   * much aggresive than pruneGlobalPlan()
+   */
+  bool pruneGlobalPlanToBaselink(const tf2_ros::Buffer& tf,
+                                 const geometry_msgs::PoseStamped& global_pose,
+                                 std::vector<geometry_msgs::PoseStamped>& global_plan);
+  /**
     * @brief  Transforms the global plan of the robot from the planner frame to the local frame (modified).
     * 
     * The method replaces transformGlobalPlan as defined in base_local_planner/goal_functions.h 
@@ -444,8 +452,9 @@ private:
   bool initialized_; //!< Keeps track about the correct initialization of this class
 
   // spiderkiller added
-  bool is_forward_;
-  int num_majority_;
+  bool is_forward_; // voting result
+  int num_majority_; // Got vote
+  int NUM_VOTER;// How many voters
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
