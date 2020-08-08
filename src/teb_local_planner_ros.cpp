@@ -318,9 +318,9 @@ uint32_t TebLocalPlannerROS::computeVelocityCommands(const geometry_msgs::PoseSt
     num_majority_ = front_vote;
   }
   if (is_forward_)
-    ROS_INFO("[TEB_heading_monitor] Forward(%d/%d)", num_majority_, NUM_VOTER);
+    ROS_DEBUG("[TEB_heading_monitor] Forward(%d/%d)", num_majority_, NUM_VOTER);
   else
-    ROS_INFO("[TEB_heading_monitor] Backward(%d/%d)", num_majority_, NUM_VOTER);
+    ROS_DEBUG("[TEB_heading_monitor] Backward(%d/%d)", num_majority_, NUM_VOTER);
 
   // Reverse heading
   if (!is_forward_) // Go backward
