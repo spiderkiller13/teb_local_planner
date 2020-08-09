@@ -53,6 +53,14 @@
 #include "g2o/solvers/csparse/linear_solver_csparse.h"
 #include "g2o/solvers/cholmod/linear_solver_cholmod.h"
 
+//Spiderkiller added
+#include <iostream>
+#include <cmath>
+#include <string>
+#include <limits> // For double inf
+#define _USE_MATH_DEFINES // for C++
+#include <tf/tf.h> // conversion
+#include <tf2/LinearMath/Quaternion.h>  
 
 // register this planner as a BaseLocalPlanner plugin
 PLUGINLIB_EXPORT_CLASS(teb_local_planner::TebLocalPlannerROS, nav_core::BaseLocalPlanner)
@@ -176,7 +184,9 @@ void TebLocalPlannerROS::initialize(std::string name, tf::TransformListener* tf,
     
     // set initialized flag
     initialized_ = true;
-
+    // SPiderkiller added
+    // GLobal variable 
+    NUM_VOTER = 20;
     ROS_DEBUG("teb_local_planner plugin initialized.");
   }
   else
@@ -237,7 +247,80 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   robot_vel_.angular.z = tf::getYaw(robot_vel_tf.getRotation());
   
   // prune global plan to cut off parts of the past (spatially before the robot)
-  pruneGlobalPlan(*tf_, robot_pose, global_plan_, cfg_.trajectory.global_plan_prune_distance);
+  //pruneGlobalPlan(*tf_, robot_pose, global_plan_, cfg_.trajectory.global_plan_prune_distance);
+  pruneGlobalPlanToBaselink(*tf_, robot_pose, global_plan_);// spiderkiller add
+
+  //spiderkiller added
+  // Heading monitor
+  std::vector<bool> voting_box_is_forward;
+  for (int i = 0; i < NUM_VOTER; i++)
+  {
+    double p_dif_x = global_plan_[i].pose.position.x - robot_pose_.x();
+    double p_dif_y = global_plan_[i].pose.position.y - robot_pose_.y();
+    double t = robot_pose_.theta();
+    double x_out =  cos(t)*p_dif_x + sin(t)*p_dif_y;
+    double y_out = -sin(t)*p_dif_x + cos(t)*p_dif_y;
+    double heading_diff = atan2(y_out, x_out);
+    
+    if (heading_diff > M_PI_2 || heading_diff < -M_PI_2)
+      {voting_box_is_forward.push_back(false);}
+    else
+      {voting_box_is_forward.push_back(true);}
+  }
+  
+  // Count Final voting
+  int back_vote = 0,front_vote = 0;
+  std::vector<bool>::iterator begin = voting_box_is_forward.begin();
+  std::vector<bool>::iterator end   = voting_box_is_forward.end();
+  std::vector<bool>::iterator it;
+  for(it=begin ; it!=end ; it++)
+  {
+    if (*it) // Forward
+      {front_vote++;}
+    else // Backward
+      {back_vote++;}
+  }
+
+  //
+  if (back_vote > front_vote)
+  {
+    is_forward_ = false;
+    num_majority_ = back_vote;
+  }
+  else if (back_vote < front_vote)
+  {
+    is_forward_ = true;
+    num_majority_ = front_vote;
+  }
+  else
+  {
+    is_forward_ = true;
+    num_majority_ = front_vote;
+  }
+  if (is_forward_)
+    ROS_INFO("[TEB_heading_monitor] Forward(%d/%d)", num_majority_, NUM_VOTER);
+  else
+    ROS_INFO("[TEB_heading_monitor] Backward(%d/%d)", num_majority_, NUM_VOTER);
+
+  // Reverse heading
+  if (!is_forward_) // Go backward
+  {
+    // reverse odom
+    // std::cout << robot_vel_.angular.z << std::endl;
+    //robot_vel_.linear.x  = -robot_vel_.linear.x;
+    //robot_vel_.linear.x  = 0;
+    //robot_vel_.linear.y  = 0;
+    //robot_vel_.angular.z  = 0;
+    //robot_vel_.angular.z = -robot_vel_.angular.z; 
+    // std::cout << robot_vel_.angular.z << std::endl;
+    // reverse robot_pose_
+    robot_pose_.reverse_theta();
+    // reverse robot_pose
+    tf::Quaternion q_rot;
+    q_rot.setRPY(0.0, 0.0, M_PI);
+    robot_pose.setRotation(q_rot);
+  }
+  // spiderkiller end
 
   // Transform global plan to the frame of interest (w.r.t. the local costmap)
   std::vector<geometry_msgs::PoseStamped> transformed_plan;
@@ -369,7 +452,6 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
     last_cmd_ = cmd_vel;
     return false;
   }
-  
   // Saturate velocity, if the optimization results violates the constraints (could be possible due to soft constraints).
   saturateVelocity(cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z, cfg_.robot.max_vel_x, cfg_.robot.max_vel_y,
                    cfg_.robot.max_vel_theta, cfg_.robot.max_vel_x_backwards);
@@ -395,6 +477,13 @@ bool TebLocalPlannerROS::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
   // a feasible solution should be found, reset counter
   no_infeasible_plans_ = 0;
   
+  // spiderkiller added, Go backward
+  if (!is_forward_)
+  {
+    // Reverse cmd_vel
+    cmd_vel.linear.x = -cmd_vel.linear.x;
+    cmd_vel.angular.z = -cmd_vel.angular.z;
+  }
   // store last command (for recovery analysis etc.)
   last_cmd_ = cmd_vel;
   
@@ -646,7 +735,53 @@ bool TebLocalPlannerROS::pruneGlobalPlan(const tf::TransformListener& tf, const 
   }
   return true;
 }
-      
+
+
+bool TebLocalPlannerROS::pruneGlobalPlanToBaselink(const tf::TransformListener& tf, const tf::Stamped<tf::Pose>& global_pose, std::vector<geometry_msgs::PoseStamped>& global_plan)
+{
+  if (global_plan.empty())
+    return true;
+  
+  try
+  {
+    // transform robot pose into the plan frame (we do not wait here, since pruning not crucial, if missed a few times)
+    tf::StampedTransform global_to_plan_transform;
+    tf.lookupTransform(global_plan.front().header.frame_id, global_pose.frame_id_, ros::Time(0), global_to_plan_transform);
+    tf::Stamped<tf::Pose> robot;
+    robot.setData( global_to_plan_transform * global_pose );
+    
+
+    // iterate plan until a pose close the robot is found
+    std::vector<geometry_msgs::PoseStamped>::iterator it = global_plan.begin();
+    std::vector<geometry_msgs::PoseStamped>::iterator erase_end = it;
+    double min_dist_sq = std::numeric_limits<double>::infinity();
+    while (it != global_plan.end())
+    {
+      double dx = robot.getOrigin().x() - it->pose.position.x;
+      double dy = robot.getOrigin().y() - it->pose.position.y;
+      double dist_sq = dx * dx + dy * dy;
+      if (dist_sq < min_dist_sq)
+      {
+         erase_end = it;
+         min_dist_sq = dist_sq;
+      }
+      ++it;
+    }
+    if (erase_end == global_plan.end())
+      return false;
+    
+    if (erase_end != global_plan.begin())
+      global_plan.erase(global_plan.begin(), erase_end);
+  }
+  catch (const tf::TransformException& ex)
+  {
+    ROS_WARN("Cannot prune path since no transform is available: %s\n", ex.what());
+    return false;
+  }
+  return true;
+}
+
+
 
 bool TebLocalPlannerROS::transformGlobalPlan(const tf::TransformListener& tf, const std::vector<geometry_msgs::PoseStamped>& global_plan,
                   const tf::Stamped<tf::Pose>& global_pose, const costmap_2d::Costmap2D& costmap, const std::string& global_frame, double max_plan_length,

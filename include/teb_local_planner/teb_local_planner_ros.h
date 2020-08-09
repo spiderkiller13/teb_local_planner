@@ -80,7 +80,6 @@
 #include <boost/bind.hpp>
 #include <boost/shared_ptr.hpp>
 
-
 namespace teb_local_planner
 {
 
@@ -256,6 +255,15 @@ protected:
     */
   bool pruneGlobalPlan(const tf::TransformListener& tf, const tf::Stamped<tf::Pose>& global_pose, 
                        std::vector<geometry_msgs::PoseStamped>& global_plan, double dist_behind_robot=1);
+
+  /**
+   * @brief spiderkiller added 
+   * This function prune all global path that already passed by base_link,
+   * much aggresive than pruneGlobalPlan()
+   */
+  bool pruneGlobalPlanToBaselink(const tf::TransformListener& tf,
+                                 const tf::Stamped<tf::Pose>& global_pose,
+                                 std::vector<geometry_msgs::PoseStamped>& global_plan);
   
   /**
     * @brief  Transforms the global plan of the robot from the planner frame to the local frame (modified).
@@ -400,7 +408,10 @@ private:
     
   // flags
   bool initialized_; //!< Keeps track about the correct initialization of this class
-
+  // spiderkiller added
+  bool is_forward_; // voting result
+  int num_majority_; // Got vote
+  int NUM_VOTER;// How many voters
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
