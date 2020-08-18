@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(teb_local_planner)
+project(fake_local_planner)
 
 # Set to Release in order to speed up the program significantly
 set(CMAKE_BUILD_TYPE Release) #None, Debug, Release, RelWithDebInfo, MinSizeRel
@@ -146,7 +146,7 @@ generate_dynamic_reconfigure_options(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include ${EXTERNAL_INCLUDE_DIRS}
-  LIBRARIES teb_local_planner ${EXTERNAL_LIBS}
+  LIBRARIES fake_local_planner ${EXTERNAL_LIBS}
   CATKIN_DEPENDS
 	base_local_planner
 	costmap_2d
@@ -179,26 +179,26 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-## Build the teb_local_planner library
+## Build the fake_local_planner library
 
-add_library(teb_local_planner
-   src/timed_elastic_band.cpp
-   src/optimal_planner.cpp
-   src/obstacles.cpp
-   src/visualization.cpp
-   src/recovery_behaviors.cpp
-   src/teb_config.cpp
-   src/homotopy_class_planner.cpp
-   src/teb_local_planner_ros.cpp
-   src/graph_search.cpp
+add_library(fake_local_planner
+   # src/timed_elastic_band.cpp
+   # src/optimal_planner.cpp
+   # src/obstacles.cpp
+   # src/visualization.cpp
+   # src/recovery_behaviors.cpp
+   # src/teb_config.cpp
+   # src/homotopy_class_planner.cpp
+   src/fake_local_planner_ros.cpp
+   # src/graph_search.cpp
 )
 
 # Dynamic reconfigure: make sure configure headers are built before any node using them
-add_dependencies(teb_local_planner ${PROJECT_NAME}_gencfg)
+add_dependencies(fake_local_planner ${PROJECT_NAME}_gencfg)
 # Generate messages before compiling the lib
-add_dependencies(teb_local_planner ${PROJECT_NAME}_generate_messages_cpp)
+add_dependencies(fake_local_planner ${PROJECT_NAME}_generate_messages_cpp)
 
-target_link_libraries(teb_local_planner
+target_link_libraries(fake_local_planner
    ${EXTERNAL_LIBS}
    ${catkin_LIBRARIES}
 )
@@ -207,13 +207,13 @@ target_link_libraries(teb_local_planner
 
 ## Build additional executables
 
-add_executable(test_optim_node src/test_optim_node.cpp)
-
-target_link_libraries(test_optim_node
-   teb_local_planner
-   ${EXTERNAL_LIBS}
-   ${catkin_LIBRARIES}
-)
+#add_executable(test_optim_node src/test_optim_node.cpp)
+#
+#target_link_libraries(test_optim_node
+#   fake_local_planner
+#   ${EXTERNAL_LIBS}
+#   ${catkin_LIBRARIES}
+#)
 
 
 #############
@@ -237,12 +237,12 @@ install(PROGRAMS
 )
 
 ## Mark executables and/or libraries for installation
-install(TARGETS teb_local_planner
+install(TARGETS fake_local_planner
    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 )
-install(TARGETS test_optim_node
-   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+#install(TARGETS test_optim_node
+#   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+#)
 
 ## Mark cpp header files for installation
 install(DIRECTORY include/${PROJECT_NAME}/
@@ -253,7 +253,7 @@ install(DIRECTORY include/${PROJECT_NAME}/
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
 install(FILES
-  teb_local_planner_plugin.xml
+  fake_local_planner_plugin.xml
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
@@ -267,12 +267,12 @@ install(DIRECTORY
 ## Testing ##
 #############
 
-if (CATKIN_ENABLE_TESTING)
-  catkin_add_gtest(test_teb_basics test/teb_basics.cpp)
-  if(TARGET test_teb_basics)
-     target_link_libraries(test_teb_basics teb_local_planner)
-  endif()
-endif()
+#if (CATKIN_ENABLE_TESTING)
+#  catkin_add_gtest(test_teb_basics test/teb_basics.cpp)
+#  if(TARGET test_teb_basics)
+#     target_link_libraries(test_teb_basics teb_local_planner)
+#  endif()
+#endif()
 
 ## Add gtest based cpp test target and link libraries
 # catkin_add_gtest(${PROJECT_NAME}-test test/test_teb_local_planner.cpp)

@@ -1,13 +1,9 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>teb_local_planner</name>
+  <name>fake_local_planner</name>
   <version>0.8.4</version>
   <description>
-    The teb_local_planner package implements a plugin
-    to the base_local_planner of the 2D navigation stack.
-    The underlying method called Timed Elastic Band locally optimizes
-    the robot's trajectory with respect to trajectory execution time,
-    separation from obstacles and compliance with kinodynamic constraints at runtime.	
+    A dummy local planner	
   </description>
 
 
@@ -49,7 +45,7 @@
   <depend>visualization_msgs</depend>
 
   <export>
-    <nav_core plugin="${prefix}/teb_local_planner_plugin.xml"/>
-    <mbf_costmap_core plugin="${prefix}/teb_local_planner_plugin.xml"/>
+    <nav_core plugin="${prefix}/fake_local_planner_plugin.xml"/>
+    <mbf_costmap_core plugin="${prefix}/fake_local_planner_plugin.xml"/>
   </export>
 </package>
